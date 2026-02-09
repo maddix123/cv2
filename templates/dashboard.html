@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Your CV workspace</h2>
+<p>Select one of 50 templates and build your resume.</p>
+<div class="grid">
+  {% for template in templates %}
+    <div class="card">
+      <strong>{{ template }}</strong>
+      <p>Modern layout optimized for ATS parsing.</p>
+      <a class="btn" href="{{ url_for('builder') }}">Use template</a>
+    </div>
+  {% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Build your CV</h2>
+<form method="post">
+  <label>Template</label>
+  <select name="template">
+    {% for template in templates %}
+      <option value="{{ template }}" {% if template == selected_template %}selected{% endif %}>{{ template }}</option>
+    {% endfor %}
+  </select>
+  <label>Full name</label>
+  <input type="text" name="name" value="{{ form.name if form }}" required />
+  <label>Target role</label>
+  <input type="text" name="role" value="{{ form.role if form }}" required />
+  <label>Summary</label>
+  <textarea name="summary" rows="3">{{ form.summary if form }}</textarea>
+  <label>Experience</label>
+  <textarea name="experience" rows="4">{{ form.experience if form }}</textarea>
+  <label>Education</label>
+  <textarea name="education" rows="3">{{ form.education if form }}</textarea>
+  <button class="btn" type="submit">Generate exports</button>
+</form>
+
+{% if export_files %}
+  <h3>Downloads</h3>
+  <ul>
+    <li><a href="{{ url_for('download_export', filename=export_files.pdf) }}">PDF export</a></li>
+    <li><a href="{{ url_for('download_export', filename=export_files.docx) }}">Word export</a></li>
+    <li><a href="{{ url_for('download_export', filename=export_files.png) }}">PNG export</a></li>
+  </ul>
+{% endif %}
+{% endblock %}
