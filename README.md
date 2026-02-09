@@ -5,7 +5,7 @@ CV2 is a lightweight VPS-hosted CV builder that requires users to sign up and lo
 ## Install (one-line format requested)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/maddix123/cv2/main/install.sh -o install.sh
+curl -fsSL https://raw.githubusercontent.com/maddix123/shopy/main/install.sh -o install.sh
 chmod +x install.sh
 ./install.sh
 ```
