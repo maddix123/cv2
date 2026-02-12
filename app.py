@@ -1,57 +1,10 @@
 from __future__ import annotations
 
 import os
-import sqlite3
-from datetime import datetime
-from pathlib import Path
 
-from flask import Flask, flash, g, redirect, render_template, request, session, url_for
-from werkzeug.security import check_password_hash, generate_password_hash
-
-BASE_DIR = Path(__file__).resolve().parent
-DB_PATH = BASE_DIR / "cv2.db"
+from flask import Flask, render_template
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("CV2_SECRET", "change-me")
-
-
-def get_db() -> sqlite3.Connection:
-    if "db" not in g:
-        g.db = sqlite3.connect(DB_PATH)
-        g.db.row_factory = sqlite3.Row
-    return g.db
-
-
-@app.teardown_appcontext
-def close_db(_error: BaseException | None) -> None:
-    db = g.pop("db", None)
-    if db is not None:
-        db.close()
-
-
-def init_db() -> None:
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                email TEXT UNIQUE NOT NULL,
-                password_hash TEXT NOT NULL,
-                created_at TEXT NOT NULL
-            )
-            """
-        )
-        conn.commit()
-
-
-@app.before_request
-def ensure_db() -> None:
-    init_db()
-
-
-def current_user_id() -> int | None:
-    user_id = session.get("user_id")
-    return int(user_id) if user_id is not None else None
 
 
 @app.route("/")
