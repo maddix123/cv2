@@ -13,25 +13,18 @@
       background: linear-gradient(135deg, #f4f7fb, #e9eff7);
       color: #333;
     }
-    .topbar {
-      background: #102a43;
-      color: #fff;
-      padding: 12px 18px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 12px;
-      flex-wrap: wrap;
+    .container {
+      max-width: 1200px;
+      margin: auto;
+      padding: 20px;
     }
-    .topbar a { color: #fff; text-decoration: none; margin-left: 12px; }
-    .container { max-width: 1200px; margin: auto; padding: 20px; }
     .header {
       background: #1f4e79;
       color: white;
       padding: 15px 20px;
       border-radius: 8px;
       margin-bottom: 20px;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
       text-align: center;
     }
     .header h2 { margin: 0; font-weight: 500; }
@@ -39,45 +32,72 @@
       background: white;
       padding: 20px;
       border-radius: 10px;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
       margin-bottom: 20px;
     }
-    .controls { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 15px; }
-    select, input { padding: 8px 10px; border-radius: 6px; border: 1px solid #ccc; }
-    button {
-      background: #1f4e79; color: white; border: none; padding: 8px 14px;
-      border-radius: 6px; cursor: pointer; transition: 0.25s;
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 15px;
     }
-    button:hover { background: #163b5c; transform: translateY(-1px); }
+    select, input {
+      padding: 8px 10px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+    button {
+      background: #1f4e79;
+      color: white;
+      border: none;
+      padding: 8px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+    button:hover { background: #163b5c; transform: translateY(-2px); }
     button.secondary { background: #6c757d; }
     button.secondary:hover { background: #555; }
-    .canvas-container { display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; }
+    .canvas-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      justify-content: center;
+    }
     canvas {
-      border: 2px dashed #d0d8e0; border-radius: 8px; background: white;
-      max-width: 100%; height: auto;
+      border: 2px dashed #d0d8e0;
+      border-radius: 8px;
+      background: white;
+      max-width: 100%;
+      height: auto;
     }
-    .upload-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
+    .upload-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+    }
     .upload-slot {
-      background: #f8fafc; padding: 12px; border-radius: 8px;
-      border: 1px solid #e1e8f0; transition: 0.3s;
+      background: #f8fafc;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid #e1e8f0;
+      transition: 0.3s;
     }
-    .upload-slot.active { border: 2px solid #1f4e79; background: #eef4fb; }
-    .status { font-weight: 600; color: #1f4e79; min-height: 22px; }
-    @media(max-width:768px) {
-      .controls { flex-direction: column; align-items: stretch; }
+    .upload-slot.active {
+      border: 2px solid #1f4e79;
+      background: #eef4fb;
+    }
+    @media(max-width: 768px) {
+      .controls {
+        flex-direction: column;
+        align-items: stretch;
+      }
       canvas { width: 100%; }
     }
   </style>
 </head>
 <body>
-  <div class="topbar">
-    <div>Logged in as <strong>{{ user_email }}</strong></div>
-    <div>
-      <a href="/">Home</a>
-      <a href="/logout">Logout</a>
-    </div>
-  </div>
-
   <div class="container">
     <div class="header">
       <h2>MODS99 PASSPORT PHOTO TOOL</h2>
@@ -111,13 +131,9 @@
         </select>
 
         <input type="number" id="copies" value="5" min="1" max="20">
-
         <button id="addToPage">Add To Page</button>
-        <button id="saveOnline">Save Online</button>
-        <button id="loadOnline" class="secondary">Load Last Save</button>
         <button id="generatePDF">Generate PDF</button>
       </div>
-      <div id="saveStatus" class="status"></div>
 
       <div class="canvas-container">
         <div>
@@ -137,25 +153,22 @@
     const slots = document.querySelectorAll('.upload-slot');
     const sourceCanvas = document.getElementById('sourceCanvas');
     const previewCanvas = document.getElementById('previewCanvas');
+
     const sCtx = sourceCanvas.getContext('2d');
     const pCtx = previewCanvas.getContext('2d');
-
-    const CANVAS_W = 400;
-    const CANVAS_H = 600;
 
     let images = [null, null, null, null];
     let crops = [null, null, null, null];
     let currentIndex = 0;
     let currentImage = null;
     let crop = { x: 0, y: 0, w: 0, h: 0 };
-    let startX = 0;
-    let startY = 0;
+    let startX;
+    let startY;
     let isDrawing = false;
     let groups = [];
 
-    function setStatus(text) {
-      document.getElementById('saveStatus').textContent = text;
-    }
+    const CANVAS_W = 400;
+    const CANVAS_H = 600;
 
     uploads.forEach((input, index) => {
       input.onchange = (e) => {
@@ -174,40 +187,26 @@
     });
 
     function highlightActive() {
-      slots.forEach((slot, i) => slot.classList.toggle('active', i === currentIndex));
+      slots.forEach((slot, i) => {
+        slot.classList.toggle('active', i === currentIndex);
+      });
     }
 
     function drawImage() {
+      if (!currentImage) return;
       sCtx.fillStyle = '#fff';
       sCtx.fillRect(0, 0, CANVAS_W, CANVAS_H);
-      if (!currentImage) return;
-
       const scale = Math.min(CANVAS_W / currentImage.width, CANVAS_H / currentImage.height);
       const w = currentImage.width * scale;
       const h = currentImage.height * scale;
       const x = (CANVAS_W - w) / 2;
       const y = (CANVAS_H - h) / 2;
       sCtx.drawImage(currentImage, x, y, w, h);
-
       if (crops[currentIndex]) {
         crop = crops[currentIndex];
         sCtx.strokeStyle = 'red';
-        sCtx.lineWidth = 2;
         sCtx.strokeRect(crop.x, crop.y, crop.w, crop.h);
       }
-    }
-
-    function saveCrop() {
-      crops[currentIndex] = { ...crop };
-    }
-
-    function updatePreview() {
-      if (!crop.w || !crop.h) return;
-      previewCanvas.width = crop.w;
-      previewCanvas.height = crop.h;
-      pCtx.fillStyle = '#fff';
-      pCtx.fillRect(0, 0, crop.w, crop.h);
-      pCtx.drawImage(sourceCanvas, crop.x, crop.y, crop.w, crop.h, 0, 0, crop.w, crop.h);
     }
 
     document.getElementById('prev').onclick = () => {
@@ -230,6 +229,10 @@
       }
     };
 
+    function saveCrop() {
+      crops[currentIndex] = crop;
+    }
+
     sourceCanvas.onmousedown = (e) => {
       const rect = sourceCanvas.getBoundingClientRect();
       startX = e.clientX - rect.left;
@@ -249,9 +252,6 @@
         h: Math.abs(cy - startY),
       };
       drawImage();
-      sCtx.strokeStyle = 'red';
-      sCtx.lineWidth = 2;
-      sCtx.strokeRect(crop.x, crop.y, crop.w, crop.h);
     };
 
     sourceCanvas.onmouseup = () => {
@@ -259,30 +259,33 @@
       updatePreview();
     };
 
+    function updatePreview() {
+      if (!crop.w) return;
+      previewCanvas.width = crop.w;
+      previewCanvas.height = crop.h;
+      pCtx.fillStyle = '#fff';
+      pCtx.fillRect(0, 0, crop.w, crop.h);
+      pCtx.drawImage(sourceCanvas, crop.x, crop.y, crop.w, crop.h, 0, 0, crop.w, crop.h);
+    }
+
     document.getElementById('addToPage').onclick = () => {
-      if (!crop.w || !crop.h) {
-        setStatus('Select a crop first.');
-        return;
-      }
+      if (!crop.w) return;
       const imgData = previewCanvas.toDataURL('image/jpeg', 1.0);
       groups.push({
         imgData,
         copies: parseInt(document.getElementById('copies').value, 10),
       });
-      setStatus(`Added to page queue. Total groups: ${groups.length}`);
     };
 
     document.getElementById('generatePDF').onclick = () => {
-      if (!groups.length) {
-        setStatus('Add at least one crop to page first.');
-        return;
-      }
       const { jsPDF } = window.jspdf;
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-      const [photoW, photoH] = document.getElementById('countrySelect').value.split(',').map(Number);
-      const spacing = 2;
+      const size = document.getElementById('countrySelect').value.split(',');
+      const photoW = parseFloat(size[0]);
+      const photoH = parseFloat(size[1]);
       let x = 5;
       let y = 5;
+      const spacing = 2;
 
       groups.forEach((group) => {
         x = 5;
@@ -291,11 +294,6 @@
             x = 5;
             y += photoH + spacing;
           }
-          if (y + photoH > 292) {
-            pdf.addPage();
-            x = 5;
-            y = 5;
-          }
           pdf.addImage(group.imgData, 'JPEG', x, y, photoW, photoH);
           x += photoW + spacing;
         }
@@ -303,53 +301,7 @@
       });
 
       pdf.save('MODS99_passport_output.pdf');
-      setStatus('PDF generated.');
     };
-
-    document.getElementById('saveOnline').onclick = async () => {
-      const payload = {
-        groups,
-        crops,
-        selectedCountry: document.getElementById('countrySelect').value,
-        copies: parseInt(document.getElementById('copies').value, 10),
-        savedAtClient: new Date().toISOString(),
-      };
-
-      setStatus('Saving online...');
-      try {
-        const response = await fetch('/save-work', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-        const data = await response.json();
-        if (!response.ok || !data.ok) throw new Error(data.error || 'Save failed');
-        setStatus('Saved online ✅');
-      } catch (_err) {
-        setStatus('Save failed.');
-      }
-    };
-
-    document.getElementById('loadOnline').onclick = async () => {
-      setStatus('Loading last saved work...');
-      try {
-        const response = await fetch('/load-work');
-        const data = await response.json();
-        if (!response.ok || !data.ok) throw new Error(data.error || 'Load failed');
-
-        const payload = data.payload || {};
-        groups = Array.isArray(payload.groups) ? payload.groups : [];
-        crops = Array.isArray(payload.crops) ? payload.crops : [null, null, null, null];
-        document.getElementById('countrySelect').value = payload.selectedCountry || '45,45';
-        if (payload.copies) document.getElementById('copies').value = payload.copies;
-        drawImage();
-        setStatus(`Loaded last saved work (${data.saved_at}).`);
-      } catch (_err) {
-        setStatus('No saved work found yet.');
-      }
-    };
-
-    drawImage();
   </script>
 </body>
 </html>

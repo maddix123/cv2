@@ -7,12 +7,8 @@ PORT="${PORT:-8000}"
 HOST="${HOST:-0.0.0.0}"
 
 if command -v apt-get >/dev/null 2>&1; then
-  SUDO=""
-  if command -v sudo >/dev/null 2>&1; then
-    SUDO="sudo"
-  fi
-  $SUDO apt-get update -y
-  $SUDO apt-get install -y git python3 python3-venv python3-pip
+  sudo apt-get update -y
+  sudo apt-get install -y git python3 python3-venv python3-pip
 fi
 
 if [[ -d "$APP_DIR/.git" ]]; then
@@ -27,9 +23,6 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install --upgrade pip
 pip install -r requirements.txt
-
-# Create database/tables on deployment
-.venv/bin/python -c "from app import init_db; init_db(); print('Database ready')"
 
 nohup env HOST="$HOST" PORT="$PORT" .venv/bin/python app.py > app.log 2>&1 &
 
