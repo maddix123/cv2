@@ -33,3 +33,10 @@ HOST=0.0.0.0 PORT=8000 python app.py
 ```
 
 Then open `http://<your-vps-ip>:8000`.
+
+
+## Authentication
+
+- Sign up: `/signup`
+- Login: `/login`
+- The passport tool at `/` requires login.
