@@ -2,89 +2,14 @@ from __future__ import annotations
 
 import json
 import os
-import sqlite3
-from datetime import datetime
-from pathlib import Path
 
-from flask import (
-    Flask,
-    flash,
-    g,
-    jsonify,
-    redirect,
-    render_template,
-    request,
-    session,
-    url_for,
-)
-from werkzeug.security import check_password_hash, generate_password_hash
-
-BASE_DIR = Path(__file__).resolve().parent
-DB_PATH = BASE_DIR / "cv2.db"
+from flask import Flask, render_template
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("CV2_SECRET", "change-me")
-
-
-def get_db() -> sqlite3.Connection:
-    if "db" not in g:
-        g.db = sqlite3.connect(DB_PATH)
-        g.db.row_factory = sqlite3.Row
-    return g.db
-
-
-@app.teardown_appcontext
-def close_db(_error: BaseException | None) -> None:
-    db = g.pop("db", None)
-    if db is not None:
-        db.close()
-
-
-def init_db() -> None:
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                email TEXT UNIQUE NOT NULL,
-                password_hash TEXT NOT NULL,
-                created_at TEXT NOT NULL
-            )
-            """
-        )
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS saved_work (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                payload_json TEXT NOT NULL,
-                created_at TEXT NOT NULL,
-                FOREIGN KEY(user_id) REFERENCES users(id)
-            )
-            """
-        )
-        conn.commit()
-
-
-def current_user_id() -> int | None:
-    user_id = session.get("user_id")
-    return int(user_id) if user_id is not None else None
-
-
-@app.before_request
-def ensure_db() -> None:
-    init_db()
 
 
 @app.route("/")
-def home():
-    if current_user_id():
-        return redirect(url_for("tool"))
-    return render_template("home.html")
-
-
-@app.route("/app")
-def tool():
+def index():
     if not current_user_id():
         return redirect(url_for("login"))
     return render_template("index.html")
@@ -93,7 +18,7 @@ def tool():
 @app.route("/signup", methods=["GET", "POST"])
 def signup():
     if current_user_id():
-        return redirect(url_for("tool"))
+        return redirect(url_for("index"))
 
     if request.method == "POST":
         email = request.form.get("email", "").strip().lower()
@@ -123,7 +48,7 @@ def signup():
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if current_user_id():
-        return redirect(url_for("tool"))
+        return redirect(url_for("index"))
 
     if request.method == "POST":
         email = request.form.get("email", "").strip().lower()
@@ -141,7 +66,7 @@ def login():
 
         session["user_id"] = user["id"]
         flash("Logged in successfully.", "success")
-        return redirect(url_for("tool"))
+        return redirect(url_for("index"))
 
     return render_template("login.html")
 
@@ -150,27 +75,7 @@ def login():
 def logout():
     session.pop("user_id", None)
     flash("You have been logged out.", "success")
-    return redirect(url_for("home"))
-
-
-@app.route("/save-work", methods=["POST"])
-def save_work():
-    user_id = current_user_id()
-    if not user_id:
-        return jsonify({"ok": False, "error": "Unauthorized"}), 401
-
-    payload = request.get_json(silent=True)
-    if not isinstance(payload, dict):
-        return jsonify({"ok": False, "error": "Invalid payload"}), 400
-
-    db = get_db()
-    db.execute(
-        "INSERT INTO saved_work (user_id, payload_json, created_at) VALUES (?, ?, ?)",
-        (user_id, json.dumps(payload), datetime.utcnow().isoformat()),
-    )
-    db.commit()
-
-    return jsonify({"ok": True, "message": "Work saved online."})
+    return redirect(url_for("login"))
 
 
 if __name__ == "__main__":

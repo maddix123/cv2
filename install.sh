@@ -24,9 +24,6 @@ source .venv/bin/activate
 pip install --upgrade pip
 pip install -r requirements.txt
 
-# Create database/tables on deployment
-.venv/bin/python -c "from app import init_db; init_db(); print('Database ready')"
-
 nohup env HOST="$HOST" PORT="$PORT" .venv/bin/python app.py > app.log 2>&1 &
 
 IP_ADDR="$(hostname -I | awk '{print $1}')"

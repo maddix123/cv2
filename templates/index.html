@@ -132,10 +132,7 @@
 
         <input type="number" id="copies" value="5" min="1" max="20">
         <button id="addToPage">Add To Page</button>
-        <button id="saveOnline">Save Online</button>
         <button id="generatePDF">Generate PDF</button>
-        <a href="/logout" style="text-decoration:none;"><button type="button" class="secondary">Logout</button></a>
-        <span id="saveStatus" style="font-weight:600;color:#1f4e79;"></span>
       </div>
 
       <div class="canvas-container">
@@ -278,39 +275,6 @@
         imgData,
         copies: parseInt(document.getElementById('copies').value, 10),
       });
-    };
-
-    
-    async function saveOnlineWork() {
-      const payload = {
-        groups,
-        crops,
-        selectedCountry: document.getElementById('countrySelect').value,
-        copies: parseInt(document.getElementById('copies').value, 10),
-        savedAt: new Date().toISOString(),
-      };
-
-      const status = document.getElementById('saveStatus');
-      status.textContent = 'Saving...';
-
-      try {
-        const response = await fetch('/save-work', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-        const data = await response.json();
-        if (!response.ok || !data.ok) {
-          throw new Error(data.error || 'Failed to save');
-        }
-        status.textContent = 'Saved online ✅';
-      } catch (error) {
-        status.textContent = 'Save failed';
-      }
-    }
-
-    document.getElementById('saveOnline').onclick = () => {
-      saveOnlineWork();
     };
 
     document.getElementById('generatePDF').onclick = () => {
