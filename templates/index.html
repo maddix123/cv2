@@ -1,6 +1,307 @@
-{% extends 'base.html' %}
-{% block content %}
-<h1>CV2 - VPS-ready CV builder</h1>
-<p>Create a secure account, choose from 50 CV templates, and export PDF, Word, and PNG formats.</p>
-<a class="btn" href="{{ url_for('signup') }}">Get started</a>
-{% endblock %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MODS99 PASSPORT PHOTO TOOL</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      margin: 0;
+      background: linear-gradient(135deg, #f4f7fb, #e9eff7);
+      color: #333;
+    }
+    .container {
+      max-width: 1200px;
+      margin: auto;
+      padding: 20px;
+    }
+    .header {
+      background: #1f4e79;
+      color: white;
+      padding: 15px 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+      text-align: center;
+    }
+    .header h2 { margin: 0; font-weight: 500; }
+    .card {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+      margin-bottom: 20px;
+    }
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+    select, input {
+      padding: 8px 10px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+    button {
+      background: #1f4e79;
+      color: white;
+      border: none;
+      padding: 8px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+    button:hover { background: #163b5c; transform: translateY(-2px); }
+    button.secondary { background: #6c757d; }
+    button.secondary:hover { background: #555; }
+    .canvas-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      justify-content: center;
+    }
+    canvas {
+      border: 2px dashed #d0d8e0;
+      border-radius: 8px;
+      background: white;
+      max-width: 100%;
+      height: auto;
+    }
+    .upload-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+    }
+    .upload-slot {
+      background: #f8fafc;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid #e1e8f0;
+      transition: 0.3s;
+    }
+    .upload-slot.active {
+      border: 2px solid #1f4e79;
+      background: #eef4fb;
+    }
+    @media(max-width: 768px) {
+      .controls {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      canvas { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h2>MODS99 PASSPORT PHOTO TOOL</h2>
+    </div>
+
+    <div class="card">
+      <div class="upload-grid">
+        <div class="upload-slot"><strong>Upload A</strong><br><input type="file" class="upload" accept="image/*"></div>
+        <div class="upload-slot"><strong>Upload B</strong><br><input type="file" class="upload" accept="image/*"></div>
+        <div class="upload-slot"><strong>Upload C</strong><br><input type="file" class="upload" accept="image/*"></div>
+        <div class="upload-slot"><strong>Upload D</strong><br><input type="file" class="upload" accept="image/*"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="controls">
+        <button id="prev" class="secondary">⬅ Previous</button>
+        <button id="next" class="secondary">Next ➡</button>
+
+        <select id="countrySelect">
+          <option value="45,45">🇺🇬 Uganda (45×45 mm)</option>
+          <option value="51,51">🇺🇸 USA (51×51 mm)</option>
+          <option value="35,45">🇬🇧 UK (35×45 mm)</option>
+          <option value="50,70">🇨🇦 Canada (50×70 mm)</option>
+          <option value="35,45">🇮🇳 India (35×45 mm)</option>
+          <option value="35,45">🇦🇺 Australia (35×45 mm)</option>
+          <option value="33,48">🇨🇳 China (33×48 mm)</option>
+          <option value="40,45">🇰🇪 Kenya (40×45 mm)</option>
+          <option value="35,45">🇿🇦 South Africa (35×45 mm)</option>
+          <option value="35,45">🇳🇬 Nigeria (35×45 mm)</option>
+        </select>
+
+        <input type="number" id="copies" value="5" min="1" max="20">
+        <button id="addToPage">Add To Page</button>
+        <button id="generatePDF">Generate PDF</button>
+      </div>
+
+      <div class="canvas-container">
+        <div>
+          <h4>Crop Area</h4>
+          <canvas id="sourceCanvas" width="400" height="600"></canvas>
+        </div>
+        <div>
+          <h4>Preview</h4>
+          <canvas id="previewCanvas"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const uploads = document.querySelectorAll('.upload');
+    const slots = document.querySelectorAll('.upload-slot');
+    const sourceCanvas = document.getElementById('sourceCanvas');
+    const previewCanvas = document.getElementById('previewCanvas');
+
+    const sCtx = sourceCanvas.getContext('2d');
+    const pCtx = previewCanvas.getContext('2d');
+
+    let images = [null, null, null, null];
+    let crops = [null, null, null, null];
+    let currentIndex = 0;
+    let currentImage = null;
+    let crop = { x: 0, y: 0, w: 0, h: 0 };
+    let startX;
+    let startY;
+    let isDrawing = false;
+    let groups = [];
+
+    const CANVAS_W = 400;
+    const CANVAS_H = 600;
+
+    uploads.forEach((input, index) => {
+      input.onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const img = new Image();
+        img.onload = () => {
+          images[index] = img;
+          currentIndex = index;
+          currentImage = img;
+          highlightActive();
+          drawImage();
+        };
+        img.src = URL.createObjectURL(file);
+      };
+    });
+
+    function highlightActive() {
+      slots.forEach((slot, i) => {
+        slot.classList.toggle('active', i === currentIndex);
+      });
+    }
+
+    function drawImage() {
+      if (!currentImage) return;
+      sCtx.fillStyle = '#fff';
+      sCtx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+      const scale = Math.min(CANVAS_W / currentImage.width, CANVAS_H / currentImage.height);
+      const w = currentImage.width * scale;
+      const h = currentImage.height * scale;
+      const x = (CANVAS_W - w) / 2;
+      const y = (CANVAS_H - h) / 2;
+      sCtx.drawImage(currentImage, x, y, w, h);
+      if (crops[currentIndex]) {
+        crop = crops[currentIndex];
+        sCtx.strokeStyle = 'red';
+        sCtx.strokeRect(crop.x, crop.y, crop.w, crop.h);
+      }
+    }
+
+    document.getElementById('prev').onclick = () => {
+      if (currentIndex > 0 && images[currentIndex - 1]) {
+        saveCrop();
+        currentIndex -= 1;
+        currentImage = images[currentIndex];
+        highlightActive();
+        drawImage();
+      }
+    };
+
+    document.getElementById('next').onclick = () => {
+      if (currentIndex < 3 && images[currentIndex + 1]) {
+        saveCrop();
+        currentIndex += 1;
+        currentImage = images[currentIndex];
+        highlightActive();
+        drawImage();
+      }
+    };
+
+    function saveCrop() {
+      crops[currentIndex] = crop;
+    }
+
+    sourceCanvas.onmousedown = (e) => {
+      const rect = sourceCanvas.getBoundingClientRect();
+      startX = e.clientX - rect.left;
+      startY = e.clientY - rect.top;
+      isDrawing = true;
+    };
+
+    sourceCanvas.onmousemove = (e) => {
+      if (!isDrawing || !currentImage) return;
+      const rect = sourceCanvas.getBoundingClientRect();
+      const cx = e.clientX - rect.left;
+      const cy = e.clientY - rect.top;
+      crop = {
+        x: Math.min(startX, cx),
+        y: Math.min(startY, cy),
+        w: Math.abs(cx - startX),
+        h: Math.abs(cy - startY),
+      };
+      drawImage();
+    };
+
+    sourceCanvas.onmouseup = () => {
+      isDrawing = false;
+      updatePreview();
+    };
+
+    function updatePreview() {
+      if (!crop.w) return;
+      previewCanvas.width = crop.w;
+      previewCanvas.height = crop.h;
+      pCtx.fillStyle = '#fff';
+      pCtx.fillRect(0, 0, crop.w, crop.h);
+      pCtx.drawImage(sourceCanvas, crop.x, crop.y, crop.w, crop.h, 0, 0, crop.w, crop.h);
+    }
+
+    document.getElementById('addToPage').onclick = () => {
+      if (!crop.w) return;
+      const imgData = previewCanvas.toDataURL('image/jpeg', 1.0);
+      groups.push({
+        imgData,
+        copies: parseInt(document.getElementById('copies').value, 10),
+      });
+    };
+
+    document.getElementById('generatePDF').onclick = () => {
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      const size = document.getElementById('countrySelect').value.split(',');
+      const photoW = parseFloat(size[0]);
+      const photoH = parseFloat(size[1]);
+      let x = 5;
+      let y = 5;
+      const spacing = 2;
+
+      groups.forEach((group) => {
+        x = 5;
+        for (let i = 0; i < group.copies; i += 1) {
+          if (x + photoW > 205) {
+            x = 5;
+            y += photoH + spacing;
+          }
+          pdf.addImage(group.imgData, 'JPEG', x, y, photoW, photoH);
+          x += photoW + spacing;
+        }
+        y += photoH + spacing;
+      });
+
+      pdf.save('MODS99_passport_output.pdf');
+    };
+  </script>
+</body>
+</html>
