@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% block content %}
-<h2>Welcome back</h2>
+<h2>Login</h2>
 <form method="post">
   <label>Email</label>
   <input type="email" name="email" required />
@@ -8,4 +8,5 @@
   <input type="password" name="password" required />
   <button class="btn" type="submit">Login</button>
 </form>
+<p class="hint">No account yet? <a href="{{ url_for('signup') }}">Create one</a>.</p>
 {% endblock %}

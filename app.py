@@ -1,18 +1,19 @@
 from __future__ import annotations
 
+import json
 import os
 import sqlite3
 from datetime import datetime
 from pathlib import Path
-from uuid import uuid4
 
 from flask import (
     Flask,
     flash,
+    g,
+    jsonify,
     redirect,
     render_template,
     request,
-    send_file,
     session,
     url_for,
 )
@@ -20,23 +21,27 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = BASE_DIR / "cv2.db"
-EXPORT_DIR = BASE_DIR / "exports"
-EXPORT_DIR.mkdir(exist_ok=True)
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("CV2_SECRET", "change-me")
 
-TEMPLATES = [f"Template {index:02d}" for index in range(1, 51)]
-
 
 def get_db() -> sqlite3.Connection:
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+    if "db" not in g:
+        g.db = sqlite3.connect(DB_PATH)
+        g.db.row_factory = sqlite3.Row
+    return g.db
+
+
+@app.teardown_appcontext
+def close_db(_error: BaseException | None) -> None:
+    db = g.pop("db", None)
+    if db is not None:
+        db.close()
 
 
 def init_db() -> None:
-    with get_db() as conn:
+    with sqlite3.connect(DB_PATH) as conn:
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS users (
@@ -44,6 +49,17 @@ def init_db() -> None:
                 email TEXT UNIQUE NOT NULL,
                 password_hash TEXT NOT NULL,
                 created_at TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS saved_work (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                payload_json TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY(user_id) REFERENCES users(id)
             )
             """
         )
@@ -56,137 +72,138 @@ def ensure_db() -> None:
 
 
 def current_user_id() -> int | None:
-    return session.get("user_id")
+    user_id = session.get("user_id")
+    return int(user_id) if user_id is not None else None
+
+
+def current_user_email() -> str | None:
+    return session.get("user_email")
 
 
 @app.route("/")
-def index():
+def home():
     if current_user_id():
-        return redirect(url_for("dashboard"))
-    return render_template("index.html")
+        return redirect(url_for("tool"))
+    return render_template("home.html")
+
+
+@app.route("/app")
+def tool():
+    if not current_user_id():
+        return redirect(url_for("login"))
+    return render_template("index.html", user_email=current_user_email())
 
 
 @app.route("/signup", methods=["GET", "POST"])
 def signup():
+    if current_user_id():
+        return redirect(url_for("tool"))
+
     if request.method == "POST":
         email = request.form.get("email", "").strip().lower()
         password = request.form.get("password", "")
+
         if not email or not password:
             flash("Email and password are required.", "error")
             return redirect(url_for("signup"))
-        with get_db() as conn:
-            try:
-                conn.execute(
-                    "INSERT INTO users (email, password_hash, created_at) VALUES (?, ?, ?)",
-                    (email, generate_password_hash(password), datetime.utcnow().isoformat()),
-                )
-                conn.commit()
-            except sqlite3.IntegrityError:
-                flash("That email is already registered.", "error")
-                return redirect(url_for("signup"))
+
+        db = get_db()
+        try:
+            db.execute(
+                "INSERT INTO users (email, password_hash, created_at) VALUES (?, ?, ?)",
+                (email, generate_password_hash(password), datetime.utcnow().isoformat()),
+            )
+            db.commit()
+        except sqlite3.IntegrityError:
+            flash("That email is already registered.", "error")
+            return redirect(url_for("signup"))
+
         flash("Account created. Please log in.", "success")
         return redirect(url_for("login"))
+
     return render_template("signup.html")
 
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
+    if current_user_id():
+        return redirect(url_for("tool"))
+
     if request.method == "POST":
         email = request.form.get("email", "").strip().lower()
         password = request.form.get("password", "")
-        with get_db() as conn:
-            user = conn.execute(
-                "SELECT id, password_hash FROM users WHERE email = ?",
-                (email,),
-            ).fetchone()
+
+        db = get_db()
+        user = db.execute(
+            "SELECT id, email, password_hash FROM users WHERE email = ?",
+            (email,),
+        ).fetchone()
+
         if not user or not check_password_hash(user["password_hash"], password):
             flash("Invalid credentials.", "error")
             return redirect(url_for("login"))
+
         session["user_id"] = user["id"]
-        return redirect(url_for("dashboard"))
+        session["user_email"] = user["email"]
+        flash("Logged in successfully.", "success")
+        return redirect(url_for("tool"))
+
     return render_template("login.html")
 
 
 @app.route("/logout")
 def logout():
     session.pop("user_id", None)
-    return redirect(url_for("index"))
+    session.pop("user_email", None)
+    flash("You have been logged out.", "success")
+    return redirect(url_for("home"))
 
 
-@app.route("/dashboard")
-def dashboard():
-    if not current_user_id():
-        return redirect(url_for("login"))
-    return render_template("dashboard.html", templates=TEMPLATES)
+@app.route("/save-work", methods=["POST"])
+def save_work():
+    user_id = current_user_id()
+    if not user_id:
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
 
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return jsonify({"ok": False, "error": "Invalid payload"}), 400
 
-def build_cv_payload(form: dict[str, str]) -> str:
-    lines = [
-        f"Name: {form.get('name', '').strip()}",
-        f"Role: {form.get('role', '').strip()}",
-        f"Summary: {form.get('summary', '').strip()}",
-        "",
-        "Experience:",
-        form.get("experience", "").strip(),
-        "",
-        "Education:",
-        form.get("education", "").strip(),
-    ]
-    return "\n".join(lines).strip()
-
-
-def export_cv(content: str, template_name: str) -> dict[str, str]:
-    export_id = uuid4().hex
-    base_name = f"cv_{export_id}"
-    files: dict[str, str] = {}
-
-    pdf_path = EXPORT_DIR / f"{base_name}.pdf"
-    doc_path = EXPORT_DIR / f"{base_name}.docx"
-    png_path = EXPORT_DIR / f"{base_name}.png"
-
-    pdf_path.write_text(
-        f"CV Template: {template_name}\n\n{content}\n\nGenerated by CV2.",
-        encoding="utf-8",
+    db = get_db()
+    db.execute(
+        "INSERT INTO saved_work (user_id, payload_json, created_at) VALUES (?, ?, ?)",
+        (user_id, json.dumps(payload), datetime.utcnow().isoformat()),
     )
-    doc_path.write_text(
-        f"CV Template: {template_name}\n\n{content}\n\nGenerated by CV2.",
-        encoding="utf-8",
+    db.commit()
+    return jsonify({"ok": True, "message": "Work saved online."})
+
+
+@app.route("/load-work", methods=["GET"])
+def load_work():
+    user_id = current_user_id()
+    if not user_id:
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
+
+    db = get_db()
+    row = db.execute(
+        "SELECT payload_json, created_at FROM saved_work WHERE user_id = ? ORDER BY id DESC LIMIT 1",
+        (user_id,),
+    ).fetchone()
+
+    if not row:
+        return jsonify({"ok": False, "error": "No saved work found"}), 404
+
+    return jsonify(
+        {
+            "ok": True,
+            "payload": json.loads(row["payload_json"]),
+            "saved_at": row["created_at"],
+        }
     )
-    png_path.write_text(
-        f"CV Template: {template_name}\n\n{content}\n\nGenerated by CV2.",
-        encoding="utf-8",
-    )
-
-    files["pdf"] = pdf_path.name
-    files["docx"] = doc_path.name
-    files["png"] = png_path.name
-    return files
-
-
-@app.route("/builder", methods=["GET", "POST"])
-def builder():
-    if not current_user_id():
-        return redirect(url_for("login"))
-    if request.method == "POST":
-        template_name = request.form.get("template", TEMPLATES[0])
-        content = build_cv_payload(request.form)
-        files = export_cv(content, template_name)
-        return render_template(
-            "builder.html",
-            templates=TEMPLATES,
-            selected_template=template_name,
-            export_files=files,
-            form=request.form,
-        )
-    return render_template("builder.html", templates=TEMPLATES)
-
-
-@app.route("/exports/<path:filename>")
-def download_export(filename: str):
-    if not current_user_id():
-        return redirect(url_for("login"))
-    return send_file(EXPORT_DIR / filename, as_attachment=True)
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8000)))
+    app.run(
+        host=os.environ.get("HOST", "0.0.0.0"),
+        port=int(os.environ.get("PORT", 8000)),
+    )

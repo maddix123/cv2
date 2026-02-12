@@ -1,0 +1,7 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>MODS99 Passport Photo Tool</h2>
+<p>This app lets you upload, crop, and generate passport photo PDFs. Login/Signup is used to save your work online.</p>
+<a class="btn" href="{{ url_for('login') }}">Login</a>
+<a class="btn" href="{{ url_for('signup') }}">Sign Up</a>
+{% endblock %}

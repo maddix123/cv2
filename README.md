@@ -1,27 +1,47 @@
-# CV2 VPS Resume Builder
+# MODS99 Passport Photo Tool (VPS App)
 
-CV2 is a lightweight VPS-hosted CV builder that requires users to sign up and log in before generating exports. It offers 50 templates and produces PDF, Word, and PNG downloads.
+A VPS-ready web app with:
+- Passport photo editor (upload, crop, preview, PDF export)
+- Login & signup
+- Online save/load of your work per user account
 
-## Install (one-line format requested)
+## One-line install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/maddix123/shopy/main/install.sh -o install.sh
-chmod +x install.sh
-./install.sh
+curl -fsSL https://raw.githubusercontent.com/maddix123/cv2/main/install.sh | bash
 ```
 
-## Run locally
+Optional custom port:
 
 ```bash
+PORT=9000 curl -fsSL https://raw.githubusercontent.com/maddix123/cv2/main/install.sh | bash
+```
+
+## Routes
+
+- `/` → Home page with visible **Login** and **Sign Up** buttons
+- `/login` → Login form
+- `/signup` → Signup form
+- `/app` → Passport editor (login required)
+- `/save-work` → Save current work online (login required)
+- `/load-work` → Load latest saved work (login required)
+
+## Database behavior
+
+- Installer creates DB tables during deployment.
+- App also calls `init_db()` before requests, so tables are auto-created if missing.
+- User credentials and saved work are stored in SQLite file `cv2.db`.
+
+## Manual run
+
+```bash
+git clone https://github.com/maddix123/cv2.git
+cd cv2
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-python app.py
+python -c "from app import init_db; init_db()"
+HOST=0.0.0.0 PORT=8000 python app.py
 ```
 
-Then visit `http://<ip>:8000` on your VPS.
-
-## Notes
-
-- Exports are generated on the server inside the `exports/` directory.
-- For production use, set `CV2_SECRET` and run behind a reverse proxy.
+Then open `http://<your-vps-ip>:8000`.
